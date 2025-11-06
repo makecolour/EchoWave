@@ -66,17 +66,25 @@ class SocketHandler {
     }
 
     // Get chat history
-    async getChatHistory(deviceId, limit = 50) {
+    async getChatHistory(deviceId, limit = 50, beforeMessageId = null) {
         try {
-            const [rows] = await pool.query(
-                `SELECT m.*, u.device_name as sender_name 
+            let query = `SELECT m.*, u.device_name as sender_name 
                 FROM messages m 
                 LEFT JOIN users u ON m.sender_device_id = u.device_id
-                WHERE m.receiver_device_id = ? OR m.sender_device_id = ? OR m.is_broadcast = TRUE
-                ORDER BY m.timestamp DESC 
-                LIMIT ?`,
-                [deviceId, deviceId, limit]
-            );
+                WHERE (m.receiver_device_id = ? OR m.sender_device_id = ? OR m.is_broadcast = TRUE)`;
+            
+            const params = [deviceId, deviceId];
+            
+            if (beforeMessageId) {
+                query += ` AND m.id < ?`;
+                params.push(beforeMessageId);
+            }
+            
+            query += ` ORDER BY m.timestamp DESC LIMIT ?`;
+            params.push(limit);
+            
+            const [rows] = await pool.query(query, params);
+            
             // Convert snake_case to camelCase for frontend
             const messages = rows.map(row => ({
                 id: row.id,
@@ -194,6 +202,29 @@ class SocketHandler {
                 }
             } catch (error) {
                 console.error('Error sending message:', error);
+                if (callback) {
+                    callback({ success: false, error: error.message });
+                }
+            }
+        });
+
+        // Handle load more messages
+        socket.on('load_more_messages', async (data, callback) => {
+            try {
+                const beforeMessageId = data.beforeMessageId;
+                const limit = data.limit || 50;
+                
+                const messages = await this.getChatHistory(socket.deviceId, limit, beforeMessageId);
+                
+                if (callback) {
+                    callback({ 
+                        success: true, 
+                        messages: messages,
+                        hasMore: messages.length === limit
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading more messages:', error);
                 if (callback) {
                     callback({ success: false, error: error.message });
                 }

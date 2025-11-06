@@ -33,6 +33,19 @@
 
                 <!-- Messages -->
                 <div class="flex-grow-1 overflow-auto p-4 bg-light" id="messagesContainer">
+                    <!-- Loading indicator -->
+                    <div ng-if="isLoadingMore" class="text-center mb-3">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <small class="text-muted ms-2">Loading older messages...</small>
+                    </div>
+                    
+                    <!-- No more messages indicator -->
+                    <div ng-if="!hasMoreMessages && messages.length > 0" class="text-center mb-3">
+                        <small class="text-muted">No more messages</small>
+                    </div>
+                    
                     <div ng-if="messages.length === 0" class="text-center text-muted my-5">
                         <h5>No messages yet</h5>
                         <p>Start the conversation!</p>
@@ -111,6 +124,8 @@
             $scope.deviceName = localStorage.getItem('deviceName');
             $scope.isConnected = false;
             $scope.connectionStatus = 'Connecting...';
+            $scope.isLoadingMore = false;
+            $scope.hasMoreMessages = true;
             
             var socket = io({
                 transports: ['websocket', 'polling']
@@ -199,6 +214,56 @@
                 
                 $scope.newMessage = '';
             };
+
+            // Load more messages
+            $scope.loadMoreMessages = function() {
+                if ($scope.isLoadingMore || !$scope.hasMoreMessages || $scope.messages.length === 0) {
+                    return;
+                }
+                
+                $scope.isLoadingMore = true;
+                var container = document.getElementById('messagesContainer');
+                var oldScrollHeight = container.scrollHeight;
+                var oldScrollTop = container.scrollTop;
+                
+                var firstMessageId = $scope.messages[0].id;
+                
+                socket.emit('load_more_messages', {
+                    beforeMessageId: firstMessageId,
+                    limit: 50
+                }, function(response) {
+                    $scope.$apply(function() {
+                        $scope.isLoadingMore = false;
+                        
+                        if (response.success && response.messages.length > 0) {
+                            // Prepend older messages
+                            $scope.messages = response.messages.concat($scope.messages);
+                            $scope.hasMoreMessages = response.hasMore;
+                            
+                            // Maintain scroll position
+                            $timeout(function() {
+                                var newScrollHeight = container.scrollHeight;
+                                container.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+                            }, 50);
+                            
+                            toastr.info('Loaded ' + response.messages.length + ' older messages');
+                        } else {
+                            $scope.hasMoreMessages = false;
+                            toastr.info('No more messages to load');
+                        }
+                    });
+                });
+            };
+            
+            // Setup scroll listener for load more
+            $timeout(function() {
+                var container = document.getElementById('messagesContainer');
+                container.addEventListener('scroll', function() {
+                    if (container.scrollTop === 0 && !$scope.isLoadingMore) {
+                        $scope.loadMoreMessages();
+                    }
+                });
+            }, 1000);
 
             // Scroll to bottom helper
             function scrollToBottom() {
