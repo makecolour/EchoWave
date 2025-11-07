@@ -11,39 +11,44 @@
     <style><%- toastrCSS %></style>
 </head>
 <body ng-controller="ChatController" class="bg-primary min-vh-100 d-flex align-items-center justify-content-center p-3">
-    <div class="container" style="max-width: 800px;">
-        <div class="card shadow-lg" style="height: 85vh;">
+    <div class="container" style="max-width: 800px; height: 100vh; display: flex; align-items: center;">
+        <div class="card shadow-lg" style="height: 95vh; width: 100%;">
             <div class="card-body d-flex flex-column p-0">
                 <!-- Header -->
-                <div class="bg-primary text-white p-4 rounded-top">
-                    <h2 class="mb-2 fw-semibold">
+                <div class="bg-primary text-white p-3 rounded-top">
+                    <h5 class="mb-1 fw-semibold">
                         💬 EchoWave Chat
-                    </h2>
-                    <div class="small">
+                    </h5>
+                    <div style="font-size: 0.8rem;">
                         <span class="badge rounded-pill me-1" ng-class="{'bg-success': isConnected, 'bg-danger': !isConnected}">
                             {{isConnected ? '●' : '○'}}
                         </span>
                         <strong>Device:</strong> {{deviceName || 'Connecting...'}} 
-                        <small ng-if="deviceId" class="text-white-50">({{deviceId}})</small>
+                        <small ng-if="deviceId" class="text-white-50" style="font-size: 0.75rem;">({{deviceId}})</small>
                     </div>
-                    <span class="badge mt-2" ng-class="{'bg-success': isConnected, 'bg-danger': !isConnected}">
+                    <span class="badge mt-1" ng-class="{'bg-success': isConnected, 'bg-danger': !isConnected}" style="font-size: 0.7rem;">
                         {{connectionStatus}}
                     </span>
                 </div>
 
                 <!-- Messages -->
-                <div class="flex-grow-1 overflow-auto p-4 bg-light" id="messagesContainer">
-                    <!-- Loading indicator -->
-                    <div ng-if="isLoadingMore" class="text-center mb-3">
-                        <div class="spinner-border spinner-border-sm text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <small class="text-muted ms-2">Loading older messages...</small>
+                <div class="flex-grow-1 overflow-auto p-4 bg-light" id="messagesContainer" style="max-height: 70vh; overflow-y: auto;">
+                    <!-- Load More Button -->
+                    <div ng-if="hasMoreMessages && messages.length > 0" class="text-center mb-3">
+                        <button class="btn btn-sm btn-outline-primary" 
+                                ng-click="loadMoreMessages()" 
+                                ng-disabled="isLoadingMore">
+                            <span ng-if="!isLoadingMore">Load Older Messages</span>
+                            <span ng-if="isLoadingMore">
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                Loading...
+                            </span>
+                        </button>
                     </div>
                     
                     <!-- No more messages indicator -->
                     <div ng-if="!hasMoreMessages && messages.length > 0" class="text-center mb-3">
-                        <small class="text-muted">No more messages</small>
+                        <small class="text-muted" style="font-size: 0.75rem;">No more messages</small>
                     </div>
                     
                     <div ng-if="messages.length === 0" class="text-center text-muted my-5">
@@ -54,13 +59,13 @@
                     <div ng-repeat="msg in messages track by $index" class="mb-3">
                         <div ng-if="msg.senderDeviceId !== deviceId" class="text-start">
                             <div class="d-inline-block">
-                                <div class="badge bg-primary text-start mb-1 small">
+                                <div class="badge bg-primary text-start mb-1" style="font-size: 0.7rem;">
                                     {{msg.senderName || msg.senderDeviceId}}
                                 </div>
                                 <div class="card border-0 shadow-sm" style="max-width: 70%;">
                                     <div class="card-body p-3">
                                         <p class="mb-1">{{msg.message}}</p>
-                                        <small class="text-muted">{{msg.timestamp | date:'short'}}</small>
+                                        <small class="text-muted" style="font-size: 0.75rem;">{{msg.timestamp | date:'short'}}</small>
                                     </div>
                                 </div>
                             </div>
@@ -70,7 +75,7 @@
                                 <div class="card bg-primary text-white border-0 shadow-sm" style="max-width: 70%;">
                                     <div class="card-body p-3">
                                         <p class="mb-1">{{msg.message}}</p>
-                                        <small class="opacity-75">{{msg.timestamp | date:'short'}}</small>
+                                        <small class="opacity-75" style="font-size: 0.75rem;">{{msg.timestamp | date:'short'}}</small>
                                     </div>
                                 </div>
                             </div>
@@ -80,7 +85,7 @@
 
                 <!-- Input Area -->
                 <div class="p-3 bg-white border-top">
-                    <form ng-submit="sendMessage()" class="input-group input-group-lg">
+                    <form ng-submit="sendMessage()" class="input-group">
                         <input type="text" 
                                class="form-control" 
                                ng-model="newMessage" 
@@ -255,16 +260,6 @@
                 });
             };
             
-            // Setup scroll listener for load more
-            $timeout(function() {
-                var container = document.getElementById('messagesContainer');
-                container.addEventListener('scroll', function() {
-                    if (container.scrollTop === 0 && !$scope.isLoadingMore) {
-                        $scope.loadMoreMessages();
-                    }
-                });
-            }, 1000);
-
             // Scroll to bottom helper
             function scrollToBottom() {
                 $timeout(function() {
